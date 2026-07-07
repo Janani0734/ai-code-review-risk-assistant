@@ -1,0 +1,259 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<title>AI Code Review Risk Assistant</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<style>
+  :root {
+    --bg: #0f1117;
+    --panel: #171a23;
+    --border: #2a2e3a;
+    --text: #e6e8ee;
+    --muted: #8a8f9c;
+    --accent: #6c8cff;
+    --low: #3ecf8e;
+    --medium: #f5b942;
+    --high: #ef5555;
+    --mono: 'SF Mono', 'Consolas', 'Monaco', monospace;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    background: var(--bg);
+    color: var(--text);
+  }
+  header {
+    padding: 24px 32px;
+    border-bottom: 1px solid var(--border);
+  }
+  header h1 { margin: 0; font-size: 20px; }
+  header p { margin: 4px 0 0; color: var(--muted); font-size: 14px; }
+  main {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 24px;
+    padding: 24px 32px;
+    max-width: 1400px;
+    margin: 0 auto;
+  }
+  @media (max-width: 900px) {
+    main { grid-template-columns: 1fr; }
+  }
+  .panel {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 20px;
+  }
+  .panel h2 { margin-top: 0; font-size: 15px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.04em; }
+  textarea {
+    width: 100%;
+    height: 420px;
+    background: #0b0d12;
+    color: var(--text);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 12px;
+    font-family: var(--mono);
+    font-size: 13px;
+    resize: vertical;
+  }
+  input[type="text"] {
+    width: 100%;
+    padding: 8px 10px;
+    background: #0b0d12;
+    border: 1px solid var(--border);
+    color: var(--text);
+    border-radius: 6px;
+    margin-bottom: 10px;
+    font-size: 13px;
+  }
+  button {
+    background: var(--accent);
+    color: white;
+    border: none;
+    padding: 10px 18px;
+    border-radius: 6px;
+    font-size: 14px;
+    cursor: pointer;
+    margin-top: 12px;
+  }
+  button:hover { opacity: 0.9; }
+  button.secondary {
+    background: transparent;
+    border: 1px solid var(--border);
+    color: var(--muted);
+  }
+  .risk-badge {
+    display: inline-block;
+    padding: 6px 14px;
+    border-radius: 20px;
+    font-weight: 600;
+    font-size: 13px;
+  }
+  .risk-Low { background: rgba(62,207,142,0.15); color: var(--low); }
+  .risk-Medium { background: rgba(245,185,66,0.15); color: var(--medium); }
+  .risk-High { background: rgba(239,85,85,0.15); color: var(--high); }
+  .score-row {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    margin-bottom: 16px;
+  }
+  .score-num { font-size: 32px; font-weight: 700; }
+  .finding {
+    border-left: 3px solid var(--border);
+    padding: 10px 14px;
+    margin-bottom: 10px;
+    background: #0b0d12;
+    border-radius: 6px;
+    font-size: 13px;
+  }
+  .finding.severity-high { border-left-color: var(--high); }
+  .finding.severity-medium { border-left-color: var(--medium); }
+  .finding.severity-low { border-left-color: var(--low); }
+  .finding .meta { color: var(--muted); font-size: 11px; margin-top: 4px; }
+  .cat-tag {
+    display: inline-block;
+    font-size: 10px;
+    text-transform: uppercase;
+    background: var(--border);
+    padding: 2px 6px;
+    border-radius: 4px;
+    margin-left: 6px;
+  }
+  .empty-state { color: var(--muted); font-size: 13px; }
+  #history { margin-top: 20px; font-size: 12px; color: var(--muted); }
+  #history table { width: 100%; border-collapse: collapse; }
+  #history td, #history th { padding: 6px 4px; text-align: left; border-bottom: 1px solid var(--border); }
+</style>
+</head>
+<body>
+<header>
+  <h1>🔎 AI Code Review Risk Assistant</h1>
+  <p>Paste a Python file or diff to statically scan for bugs, security issues, and LLM-hallucination patterns.</p>
+</header>
+<main>
+  <div class="panel">
+    <h2>Input</h2>
+    <input type="text" id="filename" placeholder="filename (optional), e.g. utils.py" />
+    <textarea id="codeInput" placeholder="Paste your Python code here...">import os
+
+def get_user(user=None):
+    return user.name
+
+def risky():
+    try:
+        x = 1 / 0
+    except:
+        pass
+
+def compute(a, b, c, d, e):
+    total = 0
+    for i in range(a):
+        if i > b:
+            if i < c:
+                while i < d:
+                    if i == e:
+                        total += 1
+                    i += 1
+    return total
+
+API_KEY = "sk_live_51H8xJ2eZvKYlo2C0aBcD"
+
+import stringutils
+
+result = math.squareroot(16)
+data = json.loads('{"a":1}', True, False)
+</textarea>
+    <button id="analyzeBtn">Analyze Code</button>
+    <button class="secondary" id="historyBtn">View History</button>
+    <div id="history"></div>
+  </div>
+
+  <div class="panel">
+    <h2>Risk Report</h2>
+    <div id="reportOutput">
+      <p class="empty-state">Run an analysis to see results here.</p>
+    </div>
+  </div>
+</main>
+
+<script>
+const analyzeBtn = document.getElementById('analyzeBtn');
+const historyBtn = document.getElementById('historyBtn');
+const reportOutput = document.getElementById('reportOutput');
+const historyDiv = document.getElementById('history');
+
+analyzeBtn.addEventListener('click', async () => {
+  const code = document.getElementById('codeInput').value;
+  const filename = document.getElementById('filename').value || 'pasted_snippet.py';
+  reportOutput.innerHTML = '<p class="empty-state">Analyzing...</p>';
+
+  try {
+    const res = await fetch('/api/analyze', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ code, filename })
+    });
+    const report = await res.json();
+    if (report.error) {
+      reportOutput.innerHTML = `<p class="empty-state">Error: ${report.error}</p>`;
+      return;
+    }
+    renderReport(report);
+  } catch (err) {
+    reportOutput.innerHTML = `<p class="empty-state">Request failed: ${err}</p>`;
+  }
+});
+
+historyBtn.addEventListener('click', async () => {
+  const res = await fetch('/api/history');
+  const rows = await res.json();
+  if (!rows.length) {
+    historyDiv.innerHTML = '<p>No history yet.</p>';
+    return;
+  }
+  let html = '<table><tr><th>File</th><th>Risk</th><th>Score</th><th>Findings</th><th>When</th></tr>';
+  for (const r of rows) {
+    html += `<tr><td>${escapeHtml(r.filename)}</td><td>${r.risk_level}</td><td>${r.risk_score}</td><td>${r.num_findings}</td><td>${new Date(r.created_at).toLocaleString()}</td></tr>`;
+  }
+  html += '</table>';
+  historyDiv.innerHTML = html;
+});
+
+function renderReport(report) {
+  const findingsHtml = report.findings.length
+    ? report.findings.map(f => `
+        <div class="finding severity-${f.severity}">
+          <strong>${f.rule_id}</strong> <span class="cat-tag">${f.category}</span>
+          <div>${escapeHtml(f.message)}</div>
+          <div class="meta">Line ${f.line} · weight ${f.weight} · ${f.severity}</div>
+        </div>
+      `).join('')
+    : '<p class="empty-state">No issues found. 🎉</p>';
+
+  reportOutput.innerHTML = `
+    <div class="score-row">
+      <span class="risk-badge risk-${report.risk_level}">${report.risk_level} Risk</span>
+      <span class="score-num">${report.risk_score}<span style="font-size:14px;color:var(--muted)">/100</span></span>
+    </div>
+    <p style="color:var(--muted); font-size:13px;">
+      ${report.num_findings} finding(s) · ${report.facts.num_lines} lines ·
+      ${report.facts.functions.length} function(s) · ${report.facts.imports.length} import(s)
+    </p>
+    <div>${findingsHtml}</div>
+  `;
+}
+
+function escapeHtml(str) {
+  return String(str)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;');
+}
+</script>
+</body>
+</html>
