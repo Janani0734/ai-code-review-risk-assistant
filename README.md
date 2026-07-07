@@ -18,6 +18,11 @@ attribute typos (`json.parse` instead of `json.loads`), and argument-count
 mismatches. It produces a weighted Low/Medium/High risk score and a
 structured JSON + human-readable report.
 
+## Live Demo
+Try it here: [janani-code-review-assistant.azurewebsites.net](https://janani-code-review-assistant-hfdjhpa3d5eva7g8.koreacentral-01.azurewebsites.net)
+
+Hosted on Azure App Service (Free tier) via GitHub Actions CI/CD — every push to `main` auto-deploys.
+
 ## Architecture
 ![architecture diagram](docs/architecture.png)
 
@@ -60,6 +65,14 @@ python app.py
 ```
 Then open `http://localhost:5000` in a browser. A sample vulnerable snippet
 is pre-loaded in the textarea — click "Analyze Code" to see it scored.
+
+### Deployment
+This repo includes a `render.yaml` for one-click deployment on
+[Render](https://render.com)'s free tier. Connect the GitHub repo in the
+Render dashboard and it will build and start automatically using the
+`gunicorn` command in `render.yaml`. Note: Render's free tier uses an
+ephemeral filesystem, so the SQLite-backed `/api/history` feature resets on
+every restart/redeploy — the core `/api/analyze` risk scoring is unaffected.
 
 Run the test suite:
 ```bash
