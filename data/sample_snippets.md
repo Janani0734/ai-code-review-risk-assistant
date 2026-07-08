@@ -54,5 +54,28 @@ def add(a, b):
     return a + b
 ```
 
-Paste any of these into the web UI's textarea, or POST them as the `code`
-field to `/api/analyze`, to see the risk-scored report.
+## Sample 5: Java equivalent of Sample 1 (unused import, swallowed exception, hardcoded secret)
+
+```java
+import java.util.List;
+
+public class UserService {
+    private String apiKey = "sk_live_51H8xJ2eZvKYlo2C0aBcD";
+
+    public String getUser(String user) {
+        return user.name;
+    }
+
+    public void risky() {
+        try {
+            int x = 1 / 0;
+        } catch (Exception e) {
+        }
+    }
+}
+```
+
+Paste any of these into the web UI's textarea (use the Python/Java sample
+toggle buttons to pre-load Sample 1 or Sample 5 directly), or POST them as
+the `code` field to `/api/analyze` with a matching `filename` (e.g.
+`"UserService.java"`), to see the risk-scored report.

@@ -128,6 +128,28 @@
   #history { margin-top: 20px; font-size: 12px; color: var(--muted); }
   #history table { width: 100%; border-collapse: collapse; }
   #history td, #history th { padding: 6px 4px; text-align: left; border-bottom: 1px solid var(--border); }
+  .lang-toggle { display: flex; gap: 8px; margin-bottom: 10px; }
+  .lang-btn {
+    background: transparent;
+    border: 1px solid var(--border);
+    color: var(--muted);
+    padding: 6px 12px;
+    margin-top: 0;
+    font-size: 12px;
+    border-radius: 6px;
+  }
+  .lang-btn.active { background: var(--accent); color: white; border-color: var(--accent); }
+  .lang-pill {
+    display: inline-block;
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+    background: var(--border);
+    color: var(--text);
+    padding: 3px 8px;
+    border-radius: 4px;
+    margin-left: 8px;
+  }
 </style>
 </head>
 <body>
@@ -138,8 +160,12 @@
 <main>
   <div class="panel">
     <h2>Input</h2>
-    <input type="text" id="filename" placeholder="filename (optional), e.g. utils.py" />
-    <textarea id="codeInput" placeholder="Paste your Python code here...">import os
+    <div class="lang-toggle">
+      <button class="lang-btn active" id="langPyBtn" type="button">Python sample</button>
+      <button class="lang-btn" id="langJavaBtn" type="button">Java sample</button>
+    </div>
+    <input type="text" id="filename" placeholder="filename (optional), e.g. utils.py or Utils.java" />
+    <textarea id="codeInput" placeholder="Paste your Python or Java code here...">import os
 
 def get_user(user=None):
     return user.name
@@ -186,6 +212,97 @@ const analyzeBtn = document.getElementById('analyzeBtn');
 const historyBtn = document.getElementById('historyBtn');
 const reportOutput = document.getElementById('reportOutput');
 const historyDiv = document.getElementById('history');
+const codeInput = document.getElementById('codeInput');
+const filenameInput = document.getElementById('filename');
+const langPyBtn = document.getElementById('langPyBtn');
+const langJavaBtn = document.getElementById('langJavaBtn');
+
+const PYTHON_SAMPLE = `import os
+
+def get_user(user=None):
+    return user.name
+
+def risky():
+    try:
+        x = 1 / 0
+    except:
+        pass
+
+def compute(a, b, c, d, e):
+    total = 0
+    for i in range(a):
+        if i > b:
+            if i < c:
+                while i < d:
+                    if i == e:
+                        total += 1
+                    i += 1
+    return total
+
+API_KEY = "sk_live_51H8xJ2eZvKYlo2C0aBcD"
+
+import stringutils
+
+result = math.squareroot(16)
+data = json.loads('{"a":1}', True, False)
+`;
+
+const JAVA_SAMPLE = `import java.util.List;
+import fakepkg.MadeUp;
+
+public class UserService {
+    private String apiKey = "sk_live_51H8xJ2eZvKYlo2C0aBcD";
+
+    public String getUser(String user) {
+        return user.toUpperCase();
+    }
+
+    public void risky() {
+        try {
+            int x = 1 / 0;
+        } catch (Exception e) {
+        }
+    }
+
+    public int compute(int a, int b, int c, int d, int e) {
+        int total = 0;
+        for (int i = 0; i < a; i++) {
+            if (i > b) {
+                if (i < c) {
+                    while (i < d) {
+                        if (i == e) {
+                            if (i % 2 == 0) {
+                                total += 1;
+                            }
+                        }
+                        i++;
+                    }
+                }
+            }
+        }
+        return total;
+    }
+
+    public void hallucinated() {
+        double r = Math.squareroot(16);
+        String s = String.valueof(5);
+    }
+}
+`;
+
+langPyBtn.addEventListener('click', () => {
+  codeInput.value = PYTHON_SAMPLE;
+  filenameInput.value = 'demo.py';
+  langPyBtn.classList.add('active');
+  langJavaBtn.classList.remove('active');
+});
+
+langJavaBtn.addEventListener('click', () => {
+  codeInput.value = JAVA_SAMPLE;
+  filenameInput.value = 'UserService.java';
+  langJavaBtn.classList.add('active');
+  langPyBtn.classList.remove('active');
+});
 
 analyzeBtn.addEventListener('click', async () => {
   const code = document.getElementById('codeInput').value;
@@ -216,9 +333,9 @@ historyBtn.addEventListener('click', async () => {
     historyDiv.innerHTML = '<p>No history yet.</p>';
     return;
   }
-  let html = '<table><tr><th>File</th><th>Risk</th><th>Score</th><th>Findings</th><th>When</th></tr>';
+  let html = '<table><tr><th>File</th><th>Lang</th><th>Risk</th><th>Score</th><th>Findings</th><th>When</th></tr>';
   for (const r of rows) {
-    html += `<tr><td>${escapeHtml(r.filename)}</td><td>${r.risk_level}</td><td>${r.risk_score}</td><td>${r.num_findings}</td><td>${new Date(r.created_at).toLocaleString()}</td></tr>`;
+    html += `<tr><td>${escapeHtml(r.filename)}</td><td>${r.language || '-'}</td><td>${r.risk_level}</td><td>${r.risk_score}</td><td>${r.num_findings}</td><td>${new Date(r.created_at).toLocaleString()}</td></tr>`;
   }
   html += '</table>';
   historyDiv.innerHTML = html;
@@ -239,6 +356,7 @@ function renderReport(report) {
     <div class="score-row">
       <span class="risk-badge risk-${report.risk_level}">${report.risk_level} Risk</span>
       <span class="score-num">${report.risk_score}<span style="font-size:14px;color:var(--muted)">/100</span></span>
+      <span class="lang-pill">${report.language || 'python'}</span>
     </div>
     <p style="color:var(--muted); font-size:13px;">
       ${report.num_findings} finding(s) · ${report.facts.num_lines} lines ·

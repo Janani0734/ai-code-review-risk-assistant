@@ -462,6 +462,7 @@ class CodeAnalyzer:
         risk_level, risk_score = self._score_to_risk(total_weight)
 
         return {
+            "language": "python",
             "risk_level": risk_level,
             "risk_score": risk_score,
             "total_weight": total_weight,
