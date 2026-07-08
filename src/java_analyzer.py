@@ -77,6 +77,31 @@ KNOWN_JAVA_PACKAGE_PREFIXES = (
 
 SECRET_KEYWORDS = ("apikey", "api_key", "secret", "token", "password", "passwd", "pwd")
 
+# Well-known JDK core class names, used to catch near-miss typos (e.g.
+# "Systems.out.println" instead of "System.out.println") that the fixed
+# fake-call table above wouldn't catch since it only matches exact,
+# pre-known mistakes rather than doing general name-similarity checking.
+KNOWN_CORE_JAVA_CLASSES = (
+    "System", "Math", "String", "Integer", "Long", "Double", "Float",
+    "Boolean", "Character", "Object", "Arrays", "Objects", "List", "Map",
+    "Set", "Collections", "Scanner", "StringBuilder", "ArrayList",
+    "HashMap", "HashSet", "Thread", "Exception", "Runnable", "Optional",
+)
+
+
+def _levenshtein(a: str, b: str) -> int:
+    """Simple edit-distance implementation (no external dependency)."""
+    if a == b:
+        return 0
+    prev = list(range(len(b) + 1))
+    for i, ca in enumerate(a, start=1):
+        curr = [i] + [0] * len(b)
+        for j, cb in enumerate(b, start=1):
+            cost = 0 if ca == cb else 1
+            curr[j] = min(prev[j] + 1, curr[j - 1] + 1, prev[j - 1] + cost)
+        prev = curr
+    return prev[-1]
+
 
 class JavaAnalyzer:
     """Parses Java source code and runs the rule engine."""
@@ -121,6 +146,7 @@ class JavaAnalyzer:
         self._check_unknown_imports()
         self._check_fake_method_calls()
         self._check_call_arity()
+        self._check_core_class_typos()
 
         return self._build_report()
 
@@ -343,6 +369,45 @@ class JavaAnalyzer:
                     line=node.position.line if node.position else 0,
                     category="hallucination",
                 ))
+
+    def _check_core_class_typos(self):
+        """Catch near-miss typos of well-known JDK core classes in method
+        call qualifiers (e.g. 'Systems.out.println' instead of
+        'System.out.println'). This is a general similarity check,
+        complementing the fixed KNOWN_FAKE_JAVA_CALLS table above which
+        only catches specific, pre-known LLM mistakes."""
+        seen_lines = set()
+        for _, node in self.tree.filter(javalang.tree.MethodInvocation):
+            if not node.qualifier:
+                continue
+            root_name = node.qualifier.split(".")[0]
+            if root_name in KNOWN_CORE_JAVA_CLASSES:
+                continue  # exact match, not a typo
+            if len(root_name) < 4:
+                continue  # too short to compare safely, avoid false positives
+            if not root_name[0].isupper():
+                continue  # Java convention: variables start lowercase, classes
+                          # start uppercase — skip likely-variable identifiers
+                          # to avoid flagging things like 'mList' or 'array'
+            for real_name in KNOWN_CORE_JAVA_CLASSES:
+                dist = _levenshtein(root_name, real_name)
+                if 0 < dist <= 2:
+                    line = node.position.line if node.position else 0
+                    if line in seen_lines:
+                        break
+                    seen_lines.add(line)
+                    self.findings.append(Finding(
+                        rule_id="HALLUCINATED_CLASS_NAME",
+                        message=(
+                            f"'{root_name}' looks like a typo of the real JDK class "
+                            f"'{real_name}' — this call will not compile."
+                        ),
+                        severity="high",
+                        weight=6,
+                        line=line,
+                        category="hallucination",
+                    ))
+                    break
 
     # ------------------------------------------------------------------
     def _build_report(self) -> Dict[str, Any]:

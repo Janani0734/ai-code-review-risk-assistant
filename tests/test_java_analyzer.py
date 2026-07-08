@@ -189,3 +189,39 @@ public class Foo {
     report = analyze_java_source(code)
     rule_ids = [f["rule_id"] for f in report["findings"]]
     assert "BROAD_CATCH" in rule_ids
+
+
+def test_java_class_name_typo_detected():
+    """Regression test: 'Systems.out.println' (extra 's') should be caught
+    as a hallucinated/typo'd class name, even though it doesn't match any
+    entry in the fixed KNOWN_FAKE_JAVA_CALLS table."""
+    code = """
+public class HelloWorld {
+    public static void main(String[] args) {
+        Systems.out.println("Hello, World!");
+    }
+}
+"""
+    report = analyze_java_source(code)
+    rule_ids = [f["rule_id"] for f in report["findings"]]
+    assert "HALLUCINATED_CLASS_NAME" in rule_ids
+
+
+def test_lowercase_variable_names_not_flagged_as_class_typos():
+    """Regression test: local variables like 'mList' or 'array' should NOT
+    be flagged as typos of 'List'/'Arrays' just because they're a close
+    edit-distance match — Java naming convention (lowercase first letter
+    for variables) should exempt them."""
+    code = """
+public class Foo {
+    public void useIt() {
+        java.util.List<String> mList = new java.util.ArrayList<String>();
+        mList.add("x");
+        int[] array = new int[5];
+        int len = array.length;
+    }
+}
+"""
+    report = analyze_java_source(code)
+    rule_ids = [f["rule_id"] for f in report["findings"]]
+    assert "HALLUCINATED_CLASS_NAME" not in rule_ids
